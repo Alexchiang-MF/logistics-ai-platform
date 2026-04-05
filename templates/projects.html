@@ -1,0 +1,270 @@
+{% extends "layout.html" %}
+{% block title %}專案總覽{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+  <h1><i class="bi bi-kanban me-2"></i>專案總覽</h1>
+  {% if current_user and not current_user.is_guest %}
+  <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newTaskModal">
+    <i class="bi bi-plus-lg me-1"></i>新增任務
+  </button>
+  {% endif %}
+</div>
+
+<!-- 篩選列 -->
+<div class="card p-3 mb-4">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">部門 / 課別</label>
+      <select name="dept" class="form-select form-select-sm">
+        <option value="">全部</option>
+        {% for region, courses in dept_tree.items() %}
+        <optgroup label="{{ region }}">
+          {% for course in courses %}
+          {% set full = region + '/' + course %}
+          <option value="{{ full }}" {% if full == selected_dept %}selected{% endif %}>
+            {{ course }}
+          </option>
+          {% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">推進狀態</label>
+      <select name="status" class="form-select form-select-sm">
+        <option value="">全部狀態</option>
+        {% for s in statuses %}
+        <option value="{{ s }}" {% if s == selected_status %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small fw-semibold mb-1">開發方式</label>
+      <select name="dev_type" class="form-select form-select-sm">
+        <option value="">全部方式</option>
+        {% for t in dev_types %}
+        <option value="{{ t }}" {% if t == selected_dev_type %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+      <button type="submit" class="btn btn-primary btn-sm px-3">
+        <i class="bi bi-funnel me-1"></i>篩選
+      </button>
+      <a href="{{ url_for('projects') }}" class="btn btn-outline-secondary btn-sm">重設</a>
+    </div>
+  </form>
+</div>
+
+<!-- 專案表格 -->
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width:50px">#</th>
+          <th>部門 / 課</th>
+          <th>任務場景名稱</th>
+          <th>開發方式</th>
+          <th>節省時數(月)</th>
+          <th>開發人員</th>
+          <th>推進狀態</th>
+          <th>最新更新週</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in projects %}
+        <tr>
+          <td class="text-muted small">{{ p.項目編號 }}</td>
+          <td class="small">{{ p.部門 }}</td>
+          <td class="fw-semibold">{{ p.任務場景名稱 }}</td>
+          <td>
+            {% if 'AI Agent' in p.開發方式 %}
+              <span class="badge rounded-pill" style="background:#6610f2">AI Agent</span>
+            {% elif '系統' in p.開發方式 %}
+              <span class="badge rounded-pill bg-info text-dark">系統開發</span>
+            {% else %}
+              <span class="badge rounded-pill bg-warning text-dark">自行開發</span>
+            {% endif %}
+          </td>
+          <td class="small text-center">{{ p.節省時數_每月 or '—' }}</td>
+          <td class="small">{{ p.開發人員 or '—' }}</td>
+          <td>
+            <span class="badge badge-{{ p.推進狀態 }}">{{ p.推進狀態 }}</span>
+          </td>
+          <td class="small text-muted">{{ p.最新更新週 or '尚未填寫' }}</td>
+          <td>
+            <a href="{{ url_for('project_detail', pid=p.id) }}"
+               class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-pencil-square me-1"></i>詳情/填寫
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" class="text-center text-muted py-5">
+            <i class="bi bi-inbox fs-2 d-block mb-2"></i>沒有符合條件的專案
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="p-3 text-muted small border-top">
+    共 {{ projects|length }} 筆
+  </div>
+</div>
+
+<!-- 新增任務 Modal -->
+<div class="modal fade" id="newTaskModal" tabindex="-1" aria-labelledby="newTaskModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="newTaskModalLabel">
+          <i class="bi bi-plus-circle me-2 text-success"></i>新增任務
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('project_new') }}">
+        <div class="modal-body">
+          <div class="row g-3">
+
+            <!-- 部門/課別 -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">部門 / 課別 <span class="text-danger">*</span></label>
+              <select name="部門" class="form-select" required>
+                <option value="">請選擇</option>
+                {% for region, courses in dept_tree.items() %}
+                <optgroup label="── {{ region }}">
+                  {% for course in courses %}
+                  <option value="{{ region }}/{{ course }}">{{ region }} / {{ course }}</option>
+                  {% endfor %}
+                </optgroup>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- 任務場景名稱 -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">任務場景名稱 <span class="text-danger">*</span></label>
+              <input type="text" name="任務場景名稱" class="form-control"
+                     placeholder="例：全區耗材提領及採購建議" required>
+            </div>
+
+            <!-- 開發方式 -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">開發方式</label>
+              <select name="開發方式" class="form-select">
+                {% for t in dev_types %}
+                <option value="{{ t }}">{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- AI用途分類 -->
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">AI 用途分類</label>
+              <input type="text" name="AI用途分類" class="form-control"
+                     placeholder="例：邏輯檢核與異常分析">
+            </div>
+
+            <hr class="my-1">
+
+            <!-- 每次執行耗費時間 -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">每次耗費時間</label>
+              <div class="input-group input-group-sm">
+                <input type="number" id="inp_time" min="0" step="1"
+                       class="form-control" placeholder="0">
+                <span class="input-group-text">分鐘</span>
+              </div>
+              <input type="hidden" name="每次執行耗費時間" id="hidden_time">
+            </div>
+
+            <!-- 每月執行頻率 -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">每月執行頻率</label>
+              <div class="input-group input-group-sm">
+                <input type="number" id="inp_freq" min="0" step="1"
+                       class="form-control" placeholder="0">
+                <span class="input-group-text">次</span>
+              </div>
+              <input type="hidden" name="每月執行頻率" id="hidden_freq">
+            </div>
+
+            <!-- 節省時數（自動計算） -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">節省時數（每月）
+                <small class="text-muted fw-normal">自動計算</small>
+              </label>
+              <div class="input-group input-group-sm">
+                <input type="text" id="calc_saving" class="form-control"
+                       readonly placeholder="依頻率×耗時計算">
+                <span class="input-group-text">小時</span>
+              </div>
+              <input type="hidden" name="節省時數_每月" id="hidden_saving">
+            </div>
+
+            <!-- 有需求人數 -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">有需求人數</label>
+              <input type="text" name="有需求人數" class="form-control form-control-sm"
+                     placeholder="例：3人">
+            </div>
+
+            <!-- 開發人員 -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">開發人員</label>
+              <input type="text" name="開發人員" class="form-control form-control-sm">
+            </div>
+
+            <!-- 種子負責人 -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">種子負責人</label>
+              <input type="text" name="種子負責人" class="form-control form-control-sm"
+                     value="{{ current_user.display if current_user and not current_user.is_guest else '' }}">
+            </div>
+
+            <!-- 直屬主管 -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">直屬主管</label>
+              <input type="text" name="直屬主管" class="form-control form-control-sm"
+                     value="淼方經理">
+            </div>
+
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-plus-lg me-1"></i>新增任務
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+function updateCalc() {
+  const freq = parseFloat(document.getElementById('inp_freq').value) || 0;
+  const mins = parseFloat(document.getElementById('inp_time').value) || 0;
+  document.getElementById('hidden_freq').value = freq ? freq + '次' : '';
+  document.getElementById('hidden_time').value = mins ? mins + '分鐘' : '';
+  if (freq > 0 && mins > 0) {
+    const hours = (freq * mins / 60).toFixed(1);
+    document.getElementById('calc_saving').value = hours;
+    document.getElementById('hidden_saving').value = hours + '小時';
+  } else {
+    document.getElementById('calc_saving').value = '';
+    document.getElementById('hidden_saving').value = '';
+  }
+}
+document.getElementById('inp_freq').addEventListener('input', updateCalc);
+document.getElementById('inp_time').addEventListener('input', updateCalc);
+</script>
+{% endblock %}
+{% endblock %}

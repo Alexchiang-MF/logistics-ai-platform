@@ -1,0 +1,234 @@
+{% extends "layout.html" %}
+{% block title %}每週進度 Dashboard{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+  <h1><i class="bi bi-speedometer2 me-2"></i>每週進度 Dashboard</h1>
+  <span class="text-muted" id="currentWeek"></span>
+</div>
+
+<!-- 第一列：專案總數 + 節省時數合計 -->
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="stat-card" style="background:linear-gradient(135deg,#1a2e4a,#253d5e)">
+      <div class="number">{{ data.total }}</div>
+      <div class="label"><i class="bi bi-grid me-1"></i>專案總數</div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="stat-card d-flex align-items-center justify-content-between" style="background:linear-gradient(135deg,#0f3460,#16213e)">
+      <div>
+        <div class="number">{{ data.total_saving }}<span style="font-size:1rem;font-weight:400;margin-left:6px;opacity:.8">小時 / 月</span></div>
+        <div class="label"><i class="bi bi-hourglass-split me-1"></i>節省時數合計</div>
+      </div>
+      <i class="bi bi-clock-history" style="font-size:2.8rem;opacity:.18"></i>
+    </div>
+  </div>
+</div>
+
+<!-- 第二列：推進狀態 + 本週進度更新數 -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md">
+    <div class="stat-card" style="background:linear-gradient(135deg,#5a6268,#6c757d)">
+      <div class="number">{{ data.status_counts.get('商談中', 0) }}</div>
+      <div class="label"><i class="bi bi-chat-dots me-1"></i>商談中</div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="stat-card" style="background:linear-gradient(135deg,#0d6efd,#3d8bff)">
+      <div class="number">{{ data.status_counts.get('開發中', 0) }}</div>
+      <div class="label"><i class="bi bi-code-slash me-1"></i>開發中</div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="stat-card" style="background:linear-gradient(135deg,#6f42c1,#8a5cf5)">
+      <div class="number">{{ data.status_counts.get('模板測試中', 0) }}</div>
+      <div class="label"><i class="bi bi-ui-checks me-1"></i>模板測試中</div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="stat-card" style="background:linear-gradient(135deg,#198754,#20a060)">
+      <div class="number">{{ data.status_counts.get('正式啟用', 0) }}</div>
+      <div class="label"><i class="bi bi-check-circle me-1"></i>正式啟用</div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="stat-card" style="background:linear-gradient(135deg,#fd7e14,#ff9a3c)">
+      <div class="number">{{ data.updated_this_week }}</div>
+      <div class="label"><i class="bi bi-pencil me-1"></i>本週進度更新數</div>
+    </div>
+  </div>
+</div>
+
+<!-- 圖表區 -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card h-100 p-3">
+      <h6 class="fw-bold mb-3 text-muted">推進狀態分布</h6>
+      <canvas id="statusChart" height="220"></canvas>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100 p-3">
+      <h6 class="fw-bold mb-3 text-muted">各部門項目數</h6>
+      <canvas id="deptChart" height="220"></canvas>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100 p-3">
+      <h6 class="fw-bold mb-3 text-muted">開發方式分布</h6>
+      <canvas id="devChart" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- 最近新增專案 -->
+<div class="card p-4 mb-3">
+  <h6 class="fw-bold mb-3 text-muted"><i class="bi bi-plus-circle me-2"></i>最近新增專案</h6>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>編號</th>
+          <th>部門</th>
+          <th>任務場景名稱</th>
+          <th>開發方式</th>
+          <th>推進狀態</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in data.recent_projects %}
+        <tr>
+          <td class="text-muted small">{{ p.項目編號 }}</td>
+          <td class="small">{{ p.部門 }}</td>
+          <td>
+            <a href="{{ url_for('project_detail', pid=p.id) }}" class="text-decoration-none fw-semibold">
+              {{ p.任務場景名稱 }}
+            </a>
+          </td>
+          <td class="small text-muted">{{ p.開發方式 }}</td>
+          <td>
+            <span class="badge badge-{{ p.推進狀態 }}">{{ p.推進狀態 }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 本週更新列表 -->
+<div class="card p-4">
+  <h6 class="fw-bold mb-3 text-muted"><i class="bi bi-clock-history me-2"></i>本週填寫紀錄</h6>
+  {% if data.this_week_updates %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>週次</th>
+          <th>部門</th>
+          <th>專案名稱</th>
+          <th>填寫人</th>
+          <th>推進狀態</th>
+          <th>本週進度摘要</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in data.this_week_updates %}
+        <tr>
+          <td class="text-nowrap text-muted small">{{ u.week_start }}</td>
+          <td class="small">{{ u.部門 }}</td>
+          <td>
+            <a href="{{ url_for('project_detail', pid=u.project_id) }}" class="text-decoration-none fw-semibold">
+              {{ u.任務場景名稱 }}
+            </a>
+          </td>
+          <td class="small">{{ u.填寫人 }}</td>
+          <td>
+            <span class="badge badge-{{ u.推進狀態 }}">{{ u.推進狀態 }}</span>
+          </td>
+          <td class="small text-muted">{{ u.本週進度內容[:80] }}{% if u.本週進度內容|length > 80 %}…{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center text-muted py-4">
+    <i class="bi bi-inbox fs-2 d-block mb-2"></i>本週尚無填寫紀錄
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // 顯示本週日期
+  const today = new Date();
+  const mon = new Date(today);
+  mon.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+  document.getElementById('currentWeek').textContent = `本週：${fmt(mon)} – ${fmt(sun)}`;
+
+  const statusData = {{ data.status_counts | tojson }};
+  const statusLabels = ['商談中','開發中','模板測試中','正式啟用'];
+  const statusColors = ['#6c757d','#0d6efd','#fd7e14','#198754'];
+
+  new Chart(document.getElementById('statusChart'), {
+    type: 'doughnut',
+    data: {
+      labels: statusLabels,
+      datasets: [{
+        data: statusLabels.map(l => statusData[l] || 0),
+        backgroundColor: statusColors,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } },
+      cutout: '60%'
+    }
+  });
+
+  const deptData = {{ data.dept_counts | tojson }};
+  new Chart(document.getElementById('deptChart'), {
+    type: 'bar',
+    data: {
+      labels: deptData.map(d => d['部門'].replace('/', '\n')),
+      datasets: [{
+        data: deptData.map(d => d['cnt']),
+        backgroundColor: '#3d8bff',
+        borderRadius: 6
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+  });
+
+  const devData = {{ data.dev_counts | tojson }};
+  const devLabels = Object.keys(devData);
+  const devColors = ['#6610f2','#20c997','#ffc107'];
+  new Chart(document.getElementById('devChart'), {
+    type: 'pie',
+    data: {
+      labels: devLabels,
+      datasets: [{
+        data: devLabels.map(l => devData[l]),
+        backgroundColor: devColors,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } }
+    }
+  });
+</script>
+{% endblock %}

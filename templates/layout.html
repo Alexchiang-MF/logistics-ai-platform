@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}AI 開發項目管理平台{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body { background: #f4f6fb; font-family: 'Microsoft JhengHei', Arial, sans-serif; }
+    .sidebar {
+      min-height: 100vh;
+      background: linear-gradient(180deg, #1a2e4a 0%, #253d5e 100%);
+      color: #fff;
+      width: 220px;
+      position: fixed;
+      top: 0; left: 0;
+      padding: 0;
+      z-index: 100;
+      box-shadow: 2px 0 8px rgba(0,0,0,.18);
+    }
+    .sidebar .brand {
+      padding: 22px 20px 16px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      letter-spacing: .5px;
+    }
+    .sidebar .nav-link {
+      color: rgba(255,255,255,.78);
+      padding: 11px 24px;
+      border-radius: 0;
+      font-size: .95rem;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active {
+      color: #fff;
+      background: rgba(255,255,255,.12);
+    }
+    .main-content {
+      margin-left: 220px;
+      padding: 28px 32px;
+      min-height: 100vh;
+    }
+    .page-header {
+      margin-bottom: 24px;
+    }
+    .page-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1a2e4a;
+    }
+    .badge-商談中 { background-color: #6c757d !important; }
+    .badge-開發中 { background-color: #0d6efd !important; }
+    .badge-模板測試中 { background-color: #fd7e14 !important; }
+    .badge-正式啟用 { background-color: #198754 !important; }
+    .card { border: none; box-shadow: 0 2px 8px rgba(0,0,0,.07); border-radius: 12px; }
+    .stat-card { border-radius: 12px; padding: 22px 24px; color: #fff; }
+    .stat-card .number { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+    .stat-card .label { font-size: .88rem; opacity: .85; margin-top: 4px; }
+    .timeline-item { position: relative; padding-left: 28px; margin-bottom: 20px; }
+    .timeline-item::before {
+      content: '';
+      position: absolute; left: 8px; top: 6px;
+      width: 10px; height: 10px;
+      border-radius: 50%; background: #0d6efd;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 2px #0d6efd;
+    }
+    .timeline-item::after {
+      content: '';
+      position: absolute; left: 12px; top: 18px;
+      width: 2px; bottom: -14px;
+      background: #dee2e6;
+    }
+    .timeline-item:last-child::after { display: none; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand d-flex align-items-center gap-2">
+    <img src="/static/logo.png" alt="logo" style="height:28px;width:auto;filter:brightness(0) invert(1)">
+    <span>物流本部AI開發管理平台</span>
+  </div>
+  <nav class="mt-2">
+    <a href="{{ url_for('dashboard') }}"
+       class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+      <i class="bi bi-speedometer2"></i> 每週進度 Dashboard
+    </a>
+    <a href="{{ url_for('projects') }}"
+       class="nav-link {% if request.endpoint in ['projects','project_detail'] %}active{% endif %}">
+      <i class="bi bi-kanban"></i> 專案總覽
+    </a>
+  </nav>
+  <div style="position:absolute;bottom:0;width:100%;border-top:1px solid rgba(255,255,255,.12);padding:14px 18px;">
+    <div class="text-white-50 small mb-2" style="line-height:1.4">
+      <i class="bi bi-person-circle me-1"></i>
+      {% if current_user %}
+        {{ current_user.display }}
+        {% if current_user.is_guest %}
+          <span class="badge bg-secondary ms-1" style="font-size:.65rem;vertical-align:middle">訪客</span>
+        {% endif %}
+      {% endif %}
+    </div>
+    <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light w-100">
+      <i class="bi bi-box-arrow-right me-1"></i>登出
+    </a>
+  </div>
+</div>
+
+<div class="main-content">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+    <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+      {{ msg }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

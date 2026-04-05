@@ -1,0 +1,141 @@
+{% extends "layout.html" %}
+{% block title %}{{ project.任務場景名稱 }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center gap-3">
+  <a href="{{ url_for('projects') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <div>
+    <h1 class="mb-0">{{ project.任務場景名稱 }}</h1>
+    <span class="text-muted small">{{ project.部門 }} ・ 項目 #{{ project.項目編號 }}</span>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- 左欄：基本資料 + 推進狀態 -->
+  <div class="col-lg-4">
+
+    <!-- 推進狀態快速切換 -->
+    <div class="card p-4 mb-3">
+      <h6 class="fw-bold mb-3 text-muted">推進狀態</h6>
+      <div class="mb-3">
+        <span class="badge badge-{{ project.推進狀態 }} fs-6 px-3 py-2">{{ project.推進狀態 }}</span>
+      </div>
+      {% if current_user and not current_user.is_guest %}
+      <form method="post" action="{{ url_for('project_status', pid=project.id) }}">
+        <div class="input-group input-group-sm">
+          <select name="推進狀態" class="form-select">
+            {% for s in statuses %}
+            <option value="{{ s }}" {% if s == project.推進狀態 %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-primary">更新</button>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+
+    <!-- 基本資料 -->
+    <div class="card p-4">
+      <h6 class="fw-bold mb-3 text-muted">專案資訊</h6>
+      <table class="table table-sm table-borderless mb-0 small">
+        <tr><td class="text-muted pe-2">開發方式</td><td>{{ project.開發方式 }}</td></tr>
+        <tr><td class="text-muted pe-2">節省時數(月)</td><td>{{ project.節省時數_每月 or '—' }}</td></tr>
+        <tr><td class="text-muted pe-2">每次耗費時間</td><td>{{ project.每次執行耗費時間 or '—' }}</td></tr>
+        <tr><td class="text-muted pe-2">每月執行頻率</td><td>{{ project.每月執行頻率 or '—' }}</td></tr>
+        <tr><td class="text-muted pe-2">有需求人數</td><td>{{ project.有需求人數 or '—' }}</td></tr>
+        <tr><td class="text-muted pe-2">開發人員</td><td>{{ project.開發人員 or '—' }}</td></tr>
+        <tr><td class="text-muted pe-2">種子負責人</td><td>{{ project.種子負責人 or '—' }}</td></tr>
+        <tr><td class="text-muted pe-2">直屬主管</td><td>{{ project.直屬主管 or '—' }}</td></tr>
+        <tr><td class="text-muted pe-2">AI用途分類</td><td>{{ project.AI用途分類 or '—' }}</td></tr>
+        {% if project.備註 %}
+        <tr><td class="text-muted pe-2">備註</td><td class="text-muted">{{ project.備註 }}</td></tr>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+
+  <!-- 右欄：填寫週報 + 歷史 -->
+  <div class="col-lg-8">
+
+    <!-- 填寫本週進度 -->
+    {% if current_user and not current_user.is_guest %}
+    <div class="card p-4 mb-4">
+      <h6 class="fw-bold mb-3 text-muted"><i class="bi bi-pencil-square me-2"></i>填寫本週進度</h6>
+      <form method="post" action="{{ url_for('project_update', pid=project.id) }}">
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <label class="form-label small fw-semibold">填寫人 <span class="text-danger">*</span></label>
+            <input type="text" name="填寫人" class="form-control form-control-sm"
+                   value="{{ current_user.display }}" required>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label small fw-semibold">週次（週一日期）</label>
+            <input type="date" name="week_start" class="form-control form-control-sm"
+                   value="{{ this_monday }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-semibold">推進狀態</label>
+            <div class="d-flex gap-2 flex-wrap">
+              {% for s in statuses %}
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="推進狀態"
+                       id="s_{{ loop.index }}" value="{{ s }}"
+                       {% if s == project.推進狀態 %}checked{% endif %}>
+                <label class="form-check-label" for="s_{{ loop.index }}">
+                  <span class="badge badge-{{ s }}">{{ s }}</span>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-semibold">本週進度內容 <span class="text-danger">*</span></label>
+            <textarea name="本週進度內容" class="form-control form-control-sm" rows="4"
+                      placeholder="請描述本週進行事項、遇到的問題、下週計畫…" required></textarea>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save me-1"></i>儲存進度
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+    {% else %}
+    <div class="card p-4 mb-4 text-center text-muted">
+      <i class="bi bi-lock fs-2 d-block mb-2"></i>
+      訪客無法填寫週報，請<a href="{{ url_for('login') }}">登入</a>後操作
+    </div>
+    {% endif %}
+
+    <!-- 週報歷史 -->
+    <div class="card p-4">
+      <h6 class="fw-bold mb-3 text-muted"><i class="bi bi-clock-history me-2"></i>歷史週報</h6>
+      {% if updates %}
+      <div class="ps-1">
+        {% for u in updates %}
+        <div class="timeline-item">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <div>
+              <span class="fw-semibold small">{{ u.week_start }} 週</span>
+              <span class="ms-2 badge badge-{{ u.推進狀態 }}">{{ u.推進狀態 }}</span>
+            </div>
+            <span class="text-muted small">{{ u.填寫人 }} ・ {{ u.created_at[:16] }}</span>
+          </div>
+          <div class="text-secondary small" style="white-space:pre-wrap">{{ u.本週進度內容 }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-center text-muted py-4">
+        <i class="bi bi-journal-text fs-2 d-block mb-2"></i>尚無週報紀錄
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}
