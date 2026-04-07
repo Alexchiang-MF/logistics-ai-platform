@@ -14,6 +14,7 @@ USERS = {
     'adychang':   {'password': 'adychang',   'display': '張綾娟'},
     'c830627':    {'password': 'c830627',    'display': '蘇柏任'},
     'alexchiang': {'password': 'alexchiang', 'display': '姜淼方'},
+    'tienyu':     {'password': 'tienyu',     'display': '柯典佑'},
 }
 
 
