@@ -121,6 +121,63 @@
   </div>
 </div>
 
+<!-- 本週進度彙整（依部門大分類） -->
+<div class="card p-4 mb-3">
+  <h6 class="fw-bold mb-3 text-muted"><i class="bi bi-journal-text me-2"></i>本週進度彙整</h6>
+  <div class="row g-3">
+
+    {% set region_styles = [
+      ('北區營運部',     '#0d6efd', 'bi-building'),
+      ('中南區營運部',   '#198754', 'bi-geo-alt'),
+      ('物流推進整合部', '#6f42c1', 'bi-diagram-3'),
+    ] %}
+
+    {% for region_name, color, icon in region_styles %}
+    {% set projects = data.weekly_by_region.get(region_name, []) %}
+    <div class="col-md-4">
+      <div class="h-100 rounded-3 p-3" style="background:#f8f9fa;border-left:4px solid {{ color }}">
+        <div class="d-flex align-items-center mb-3">
+          <i class="bi {{ icon }} me-2" style="color:{{ color }}"></i>
+          <span class="fw-bold" style="color:{{ color }}">{{ region_name }}</span>
+          {% if projects %}
+          <span class="ms-auto badge rounded-pill" style="background:{{ color }}">{{ projects|length }} 項</span>
+          {% endif %}
+        </div>
+
+        {% if projects %}
+        {% for p in projects %}
+        <div class="mb-3 pb-2{% if not loop.last %} border-bottom{% endif %}">
+          <div class="d-flex flex-wrap align-items-center gap-1 mb-1">
+            <a href="{{ url_for('project_detail', pid=p.id) }}"
+               class="fw-semibold text-decoration-none" style="font-size:.9rem;color:#1a2e4a">
+              {{ p.任務場景名稱 }}
+            </a>
+            <span class="badge badge-{{ p.week_status }}">{{ p.week_status }}</span>
+            {% if p.status_changed %}
+            <span class="badge" style="background:#fd7e14;font-size:.7rem">
+              <i class="bi bi-arrow-up-right me-1"></i>{{ p.prev_status }} → {{ p.week_status }}
+            </span>
+            {% endif %}
+          </div>
+          <div class="text-muted" style="font-size:.78rem">
+            <span class="fw-semibold">{{ p.部門.split('/')[-1] if '/' in p.部門 else p.部門 }}</span>
+            <span class="mx-1">·</span>
+            {{ p.本週進度內容[:90] }}{% if p.本週進度內容|length > 90 %}…{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="text-muted small text-center py-3">
+          <i class="bi bi-inbox d-block mb-1"></i>本週無更新
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+  </div>
+</div>
+
 <!-- 本週更新列表 -->
 <div class="card p-4">
   <h6 class="fw-bold mb-3 text-muted"><i class="bi bi-clock-history me-2"></i>本週填寫紀錄</h6>

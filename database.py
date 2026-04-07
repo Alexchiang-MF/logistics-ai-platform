@@ -166,6 +166,47 @@ def get_dashboard_data():
         LIMIT 8
     """).fetchall()]
 
+    # 本週進度彙整：每專案取本週最新一筆更新，依大分類分組
+    proj_updates_raw = conn.execute("""
+        SELECT
+            p.id, p.項目編號, p.部門, p.任務場景名稱,
+            u.推進狀態 AS week_status, u.本週進度內容, u.填寫人
+        FROM projects p
+        JOIN (
+            SELECT project_id, MAX(id) AS max_id
+            FROM weekly_updates
+            WHERE week_start >= date('now','weekday 0','-7 days')
+            GROUP BY project_id
+        ) latest ON latest.project_id = p.id
+        JOIN weekly_updates u ON u.id = latest.max_id
+        ORDER BY p.部門, p.項目編號
+    """).fetchall()
+
+    # 取得每個專案在本週之前的最後推進狀態，用以判斷本週是否有狀態變更
+    prev_statuses = {}
+    for row in proj_updates_raw:
+        pid = row['id']
+        prev = conn.execute("""
+            SELECT 推進狀態 FROM weekly_updates
+            WHERE project_id = ? AND week_start < date('now','weekday 0','-7 days')
+            ORDER BY week_start DESC, id DESC LIMIT 1
+        """, (pid,)).fetchone()
+        prev_statuses[pid] = prev['推進狀態'] if prev else None
+
+    REGIONS = ["北區營運部", "中南區營運部", "物流推進整合部"]
+    weekly_by_region = {r: [] for r in REGIONS}
+    for row in proj_updates_raw:
+        d = dict(row)
+        dept = d.get('部門') or ''
+        region = next((r for r in REGIONS if dept.startswith(r)), None)
+        if not region:
+            continue
+        pid = d['id']
+        prev_st = prev_statuses.get(pid)
+        d['status_changed'] = bool(prev_st and prev_st != d['week_status'])
+        d['prev_status'] = prev_st
+        weekly_by_region[region].append(d)
+
     conn.close()
     return {
         "status_counts": status_counts,
@@ -176,6 +217,7 @@ def get_dashboard_data():
         "this_week_updates": this_week_updates,
         "recent_projects": recent_projects,
         "total_saving": total_saving,
+        "weekly_by_region": weekly_by_region,
     }
 
 
