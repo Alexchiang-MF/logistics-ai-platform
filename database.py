@@ -203,6 +203,24 @@ DEPT_LIST = [
 ]
 
 
+def update_project_info(project_id, data: dict):
+    conn = get_conn()
+    conn.execute("""
+        UPDATE projects SET
+            任務場景名稱=?, 部門=?, 開發方式=?, 節省時數_每月=?,
+            每次執行耗費時間=?, 每月執行頻率=?, 有需求人數=?,
+            開發人員=?, 種子負責人=?, 直屬主管=?, AI用途分類=?, 備註=?
+        WHERE id=?
+    """, (
+        data.get('任務場景名稱'), data.get('部門'), data.get('開發方式'), data.get('節省時數_每月'),
+        data.get('每次執行耗費時間'), data.get('每月執行頻率'), data.get('有需求人數'),
+        data.get('開發人員'), data.get('種子負責人'), data.get('直屬主管'),
+        data.get('AI用途分類'), data.get('備註'), project_id
+    ))
+    conn.commit()
+    conn.close()
+
+
 def create_project(項目編號, 部門, 任務場景名稱, 開發方式, 節省時數,
                    開發人員, 種子負責人, 直屬主管,
                    每次執行耗費時間, 每月執行頻率, 有需求人數, AI用途分類):

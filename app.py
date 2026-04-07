@@ -175,6 +175,8 @@ def project_detail(pid):
         project=project,
         updates=updates,
         statuses=db.STATUSES,
+        depts=db.DEPT_LIST,
+        dev_types=db.DEV_TYPES,
         this_monday=this_monday(),
     )
 
@@ -203,6 +205,18 @@ def project_status(pid):
     if status in db.STATUSES:
         db.update_project_status(pid, status)
         flash(f"狀態已更新為「{status}」", "success")
+    return redirect(url_for("project_detail", pid=pid))
+
+
+@app.route("/project/<int:pid>/edit", methods=["POST"])
+@require_login
+def project_edit(pid):
+    fields = ['任務場景名稱', '部門', '開發方式', '節省時數_每月',
+              '每次執行耗費時間', '每月執行頻率', '有需求人數',
+              '開發人員', '種子負責人', '直屬主管', 'AI用途分類', '備註']
+    data = {f: request.form.get(f, '').strip() for f in fields}
+    db.update_project_info(pid, data)
+    flash("專案資訊已更新", "success")
     return redirect(url_for("project_detail", pid=pid))
 
 

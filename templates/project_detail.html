@@ -39,21 +39,110 @@
 
     <!-- 基本資料 -->
     <div class="card p-4">
-      <h6 class="fw-bold mb-3 text-muted">專案資訊</h6>
-      <table class="table table-sm table-borderless mb-0 small">
-        <tr><td class="text-muted pe-2">開發方式</td><td>{{ project.開發方式 }}</td></tr>
-        <tr><td class="text-muted pe-2">節省時數(月)</td><td>{{ project.節省時數_每月 or '—' }}</td></tr>
-        <tr><td class="text-muted pe-2">每次耗費時間</td><td>{{ project.每次執行耗費時間 or '—' }}</td></tr>
-        <tr><td class="text-muted pe-2">每月執行頻率</td><td>{{ project.每月執行頻率 or '—' }}</td></tr>
-        <tr><td class="text-muted pe-2">有需求人數</td><td>{{ project.有需求人數 or '—' }}</td></tr>
-        <tr><td class="text-muted pe-2">開發人員</td><td>{{ project.開發人員 or '—' }}</td></tr>
-        <tr><td class="text-muted pe-2">種子負責人</td><td>{{ project.種子負責人 or '—' }}</td></tr>
-        <tr><td class="text-muted pe-2">直屬主管</td><td>{{ project.直屬主管 or '—' }}</td></tr>
-        <tr><td class="text-muted pe-2">AI用途分類</td><td>{{ project.AI用途分類 or '—' }}</td></tr>
-        {% if project.備註 %}
-        <tr><td class="text-muted pe-2">備註</td><td class="text-muted">{{ project.備註 }}</td></tr>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0 text-muted">專案資訊</h6>
+        {% if current_user and not current_user.is_guest %}
+        <button class="btn btn-sm btn-outline-secondary" id="editToggleBtn" onclick="toggleEdit()">
+          <i class="bi bi-pencil me-1"></i>編輯
+        </button>
         {% endif %}
-      </table>
+      </div>
+
+      <!-- 檢視模式 -->
+      <div id="viewMode">
+        <table class="table table-sm table-borderless mb-0 small">
+          <tr><td class="text-muted pe-2" style="width:45%">任務場景名稱</td><td>{{ project.任務場景名稱 }}</td></tr>
+          <tr><td class="text-muted pe-2">部門</td><td>{{ project.部門 }}</td></tr>
+          <tr><td class="text-muted pe-2">開發方式</td><td>{{ project.開發方式 }}</td></tr>
+          <tr><td class="text-muted pe-2">節省時數(月)</td><td>{{ project.節省時數_每月 or '—' }}</td></tr>
+          <tr><td class="text-muted pe-2">每次耗費時間</td><td>{{ project.每次執行耗費時間 or '—' }}</td></tr>
+          <tr><td class="text-muted pe-2">每月執行頻率</td><td>{{ project.每月執行頻率 or '—' }}</td></tr>
+          <tr><td class="text-muted pe-2">有需求人數</td><td>{{ project.有需求人數 or '—' }}</td></tr>
+          <tr><td class="text-muted pe-2">開發人員</td><td>{{ project.開發人員 or '—' }}</td></tr>
+          <tr><td class="text-muted pe-2">種子負責人</td><td>{{ project.種子負責人 or '—' }}</td></tr>
+          <tr><td class="text-muted pe-2">直屬主管</td><td>{{ project.直屬主管 or '—' }}</td></tr>
+          <tr><td class="text-muted pe-2">AI用途分類</td><td>{{ project.AI用途分類 or '—' }}</td></tr>
+          {% if project.備註 %}
+          <tr><td class="text-muted pe-2">備註</td><td class="text-muted">{{ project.備註 }}</td></tr>
+          {% endif %}
+        </table>
+      </div>
+
+      <!-- 編輯模式 -->
+      <div id="editMode" style="display:none">
+        <form method="post" action="{{ url_for('project_edit', pid=project.id) }}">
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">任務場景名稱</label>
+            <input type="text" name="任務場景名稱" class="form-control form-control-sm" value="{{ project.任務場景名稱 }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">部門</label>
+            <select name="部門" class="form-select form-select-sm">
+              {% for dept in depts %}
+              <option value="{{ dept }}" {% if dept == project.部門 %}selected{% endif %}>{{ dept }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">開發方式</label>
+            <select name="開發方式" class="form-select form-select-sm">
+              {% for dt in dev_types %}
+              <option value="{{ dt }}" {% if dt == project.開發方式 %}selected{% endif %}>{{ dt }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label small fw-semibold mb-1">每月頻率（次）</label>
+              <input type="number" name="_freq" id="edit_freq" min="0" class="form-control form-control-sm"
+                     value="{{ project.每月執行頻率 | replace('次','') if project.每月執行頻率 else '' }}">
+              <input type="hidden" name="每月執行頻率" id="edit_hidden_freq">
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-semibold mb-1">每次耗時（分鐘）</label>
+              <input type="number" name="_mins" id="edit_mins" min="0" class="form-control form-control-sm"
+                     value="{{ project.每次執行耗費時間 | replace('分鐘','') if project.每次執行耗費時間 else '' }}">
+              <input type="hidden" name="每次執行耗費時間" id="edit_hidden_mins">
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">節省時數（月）</label>
+            <div class="input-group input-group-sm">
+              <input type="text" id="edit_saving" class="form-control form-control-sm" readonly placeholder="自動計算">
+              <span class="input-group-text">小時</span>
+            </div>
+            <input type="hidden" name="節省時數_每月" id="edit_hidden_saving" value="{{ project.節省時數_每月 }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">有需求人數</label>
+            <input type="text" name="有需求人數" class="form-control form-control-sm" value="{{ project.有需求人數 or '' }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">開發人員</label>
+            <input type="text" name="開發人員" class="form-control form-control-sm" value="{{ project.開發人員 or '' }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">種子負責人</label>
+            <input type="text" name="種子負責人" class="form-control form-control-sm" value="{{ project.種子負責人 or '' }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">直屬主管</label>
+            <input type="text" name="直屬主管" class="form-control form-control-sm" value="{{ project.直屬主管 or '' }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">AI用途分類</label>
+            <input type="text" name="AI用途分類" class="form-control form-control-sm" value="{{ project.AI用途分類 or '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold mb-1">備註</label>
+            <textarea name="備註" class="form-control form-control-sm" rows="2">{{ project.備註 or '' }}</textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-save me-1"></i>儲存</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleEdit()">取消</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -138,4 +227,55 @@
 
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleEdit() {
+  const view = document.getElementById('viewMode');
+  const edit = document.getElementById('editMode');
+  const btn  = document.getElementById('editToggleBtn');
+  const isEditing = edit.style.display !== 'none';
+  view.style.display = isEditing ? '' : 'none';
+  edit.style.display = isEditing ? 'none' : '';
+  btn.innerHTML = isEditing
+    ? '<i class="bi bi-pencil me-1"></i>編輯'
+    : '<i class="bi bi-x me-1"></i>取消';
+  if (!isEditing) initEditCalc();
+}
+
+function initEditCalc() {
+  const freq = document.getElementById('edit_freq');
+  const mins = document.getElementById('edit_mins');
+  const saving = document.getElementById('edit_saving');
+  const hFreq = document.getElementById('edit_hidden_freq');
+  const hMins = document.getElementById('edit_hidden_mins');
+  const hSaving = document.getElementById('edit_hidden_saving');
+
+  function calc() {
+    const f = parseFloat(freq.value) || 0;
+    const m = parseFloat(mins.value) || 0;
+    hFreq.value = f ? f + '次' : '';
+    hMins.value = m ? m + '分鐘' : '';
+    if (f > 0 && m > 0) {
+      const h = (f * m / 60).toFixed(1);
+      saving.value = h;
+      hSaving.value = h + '小時';
+    } else {
+      saving.value = '';
+      hSaving.value = '';
+    }
+  }
+
+  // Show existing saving value on open
+  const curFreq = parseFloat(freq.value) || 0;
+  const curMins = parseFloat(mins.value) || 0;
+  if (curFreq && curMins) {
+    saving.value = (curFreq * curMins / 60).toFixed(1);
+  }
+
+  freq.addEventListener('input', calc);
+  mins.addEventListener('input', calc);
+}
+</script>
 {% endblock %}
