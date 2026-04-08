@@ -132,6 +132,7 @@
           <th>部門 / 課</th>
           <th>任務場景名稱</th>
           <th>取消原因</th>
+          <th>取消人員</th>
           <th></th>
         </tr>
       </thead>
@@ -142,6 +143,7 @@
           <td class="small">{{ p.部門 }}</td>
           <td class="small" style="text-decoration:line-through">{{ p.任務場景名稱 }}</td>
           <td class="small">{{ p.cancel_reason or '—' }}</td>
+          <td class="small">{{ p.cancel_by or '—' }}</td>
           <td>
             <a href="{{ url_for('project_detail', pid=p.id) }}"
                class="btn btn-sm btn-outline-secondary">
