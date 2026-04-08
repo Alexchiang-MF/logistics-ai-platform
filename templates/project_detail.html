@@ -42,7 +42,11 @@
     <div class="alert alert-secondary d-flex gap-2 align-items-start mb-3">
       <i class="bi bi-x-circle-fill mt-1"></i>
       <div>
-        <div class="fw-semibold">此專案已取消</div>
+        <div class="fw-semibold">此專案已取消
+          {% if project.cancel_by %}
+          <span class="fw-normal text-muted">・由 {{ project.cancel_by }}</span>
+          {% endif %}
+        </div>
         {% if project.cancel_reason %}
         <div class="small mt-1">{{ project.cancel_reason }}</div>
         {% endif %}

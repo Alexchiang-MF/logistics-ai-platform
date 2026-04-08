@@ -57,6 +57,7 @@ def init_db():
     for col_def in [
         "ALTER TABLE projects ADD COLUMN created_at DATETIME",
         "ALTER TABLE projects ADD COLUMN cancel_reason TEXT",
+        "ALTER TABLE projects ADD COLUMN cancel_by TEXT",
     ]:
         try:
             conn.execute(col_def)
@@ -116,11 +117,11 @@ def get_cancelled_projects(dept=None, dev_type=None):
     return [dict(r) for r in rows]
 
 
-def cancel_project(project_id, reason):
+def cancel_project(project_id, reason, cancelled_by):
     conn = get_conn()
     conn.execute(
-        "UPDATE projects SET 推進狀態='已取消', cancel_reason=? WHERE id=?",
-        (reason, project_id)
+        "UPDATE projects SET 推進狀態='已取消', cancel_reason=?, cancel_by=? WHERE id=?",
+        (reason, cancelled_by, project_id)
     )
     conn.commit()
     conn.close()

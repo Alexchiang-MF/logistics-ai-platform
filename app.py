@@ -220,7 +220,8 @@ def project_cancel(pid):
     if not reason:
         flash("請填寫取消原因", "warning")
         return redirect(url_for("project_detail", pid=pid))
-    db.cancel_project(pid, reason)
+    user = get_current_user()
+    db.cancel_project(pid, reason, user['display'])
     flash("專案已標記為已取消", "success")
     return redirect(url_for("project_detail", pid=pid))
 
