@@ -54,27 +54,36 @@ def init_db():
     """)
     conn.commit()
     # 舊資料庫補欄位（若已存在則忽略）
-    try:
-        conn.execute("ALTER TABLE projects ADD COLUMN created_at DATETIME")
-        conn.commit()
-    except Exception:
-        pass
+    for col_def in [
+        "ALTER TABLE projects ADD COLUMN created_at DATETIME",
+        "ALTER TABLE projects ADD COLUMN cancel_reason TEXT",
+    ]:
+        try:
+            conn.execute(col_def)
+            conn.commit()
+        except Exception:
+            pass
     conn.close()
 
 
 def get_all_projects(dept=None, status=None, dev_type=None):
+    """已取消專案不在此列；用 get_cancelled_projects() 另取。"""
     conn = get_conn()
     sql = """
         SELECT p.*,
                MAX(u.week_start) AS 最新更新週
         FROM projects p
         LEFT JOIN weekly_updates u ON u.project_id = p.id
-        WHERE 1=1
+        WHERE p.推進狀態 != '已取消'
     """
     params = []
     if dept:
-        sql += " AND p.部門 = ?"
-        params.append(dept)
+        if '/' in dept:          # 精確課別
+            sql += " AND p.部門 = ?"
+            params.append(dept)
+        else:                    # 父部門 → 全部課別
+            sql += " AND p.部門 LIKE ?"
+            params.append(dept + '/%')
     if status:
         sql += " AND p.推進狀態 = ?"
         params.append(status)
@@ -85,6 +94,36 @@ def get_all_projects(dept=None, status=None, dev_type=None):
     rows = conn.execute(sql, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_cancelled_projects(dept=None, dev_type=None):
+    conn = get_conn()
+    sql = "SELECT * FROM projects WHERE 推進狀態 = '已取消'"
+    params = []
+    if dept:
+        if '/' in dept:
+            sql += " AND 部門 = ?"
+            params.append(dept)
+        else:
+            sql += " AND 部門 LIKE ?"
+            params.append(dept + '/%')
+    if dev_type:
+        sql += " AND 開發方式 = ?"
+        params.append(dev_type)
+    sql += " ORDER BY 項目編號"
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def cancel_project(project_id, reason):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE projects SET 推進狀態='已取消', cancel_reason=? WHERE id=?",
+        (reason, project_id)
+    )
+    conn.commit()
+    conn.close()
 
 
 def get_project(project_id):
@@ -125,48 +164,54 @@ def get_weekly_updates(project_id):
 def get_dashboard_data():
     conn = get_conn()
 
+    NOT_CANCELLED = "推進狀態 != '已取消'"
+
     status_counts = {r["推進狀態"]: r["cnt"] for r in conn.execute(
-        "SELECT 推進狀態, COUNT(*) AS cnt FROM projects GROUP BY 推進狀態"
+        f"SELECT 推進狀態, COUNT(*) AS cnt FROM projects WHERE {NOT_CANCELLED} GROUP BY 推進狀態"
     ).fetchall()}
 
     dept_counts = [dict(r) for r in conn.execute(
-        "SELECT 部門, COUNT(*) AS cnt FROM projects GROUP BY 部門 ORDER BY cnt DESC"
+        f"SELECT 部門, COUNT(*) AS cnt FROM projects WHERE {NOT_CANCELLED} GROUP BY 部門 ORDER BY cnt DESC"
     ).fetchall()]
 
     dev_counts = {r["開發方式"]: r["cnt"] for r in conn.execute(
-        "SELECT 開發方式, COUNT(*) AS cnt FROM projects GROUP BY 開發方式"
+        f"SELECT 開發方式, COUNT(*) AS cnt FROM projects WHERE {NOT_CANCELLED} GROUP BY 開發方式"
     ).fetchall()}
 
-    total = conn.execute("SELECT COUNT(*) FROM projects").fetchone()[0]
+    total = conn.execute(f"SELECT COUNT(*) FROM projects WHERE {NOT_CANCELLED}").fetchone()[0]
 
-    # This week's updates (Mon–Sun of current week)
+    # This week's updates (Mon–Sun of current week), excluding cancelled projects
     this_week_updates = [dict(r) for r in conn.execute("""
         SELECT u.*, p.任務場景名稱, p.部門
         FROM weekly_updates u
         JOIN projects p ON p.id = u.project_id
         WHERE u.week_start >= date('now','weekday 0','-7 days')
+          AND p.推進狀態 != '已取消'
         ORDER BY u.created_at DESC
         LIMIT 50
     """).fetchall()]
 
     updated_this_week = conn.execute("""
-        SELECT COUNT(DISTINCT project_id) FROM weekly_updates
-        WHERE week_start >= date('now','weekday 0','-7 days')
+        SELECT COUNT(DISTINCT u.project_id) FROM weekly_updates u
+        JOIN projects p ON p.id = u.project_id
+        WHERE u.week_start >= date('now','weekday 0','-7 days')
+          AND p.推進狀態 != '已取消'
     """).fetchone()[0]
 
     saving_rows = conn.execute(
-        "SELECT 節省時數_每月 FROM projects WHERE 節省時數_每月 IS NOT NULL AND 節省時數_每月 != ''"
+        f"SELECT 節省時數_每月 FROM projects WHERE {NOT_CANCELLED} AND 節省時數_每月 IS NOT NULL AND 節省時數_每月 != ''"
     ).fetchall()
     total_saving = round(sum(_parse_hours(r[0]) for r in saving_rows), 1)
 
-    recent_projects = [dict(r) for r in conn.execute("""
+    recent_projects = [dict(r) for r in conn.execute(f"""
         SELECT id, 項目編號, 部門, 任務場景名稱, 開發方式, 推進狀態, created_at
         FROM projects
+        WHERE {NOT_CANCELLED}
         ORDER BY id DESC
         LIMIT 8
     """).fetchall()]
 
-    # 本週進度彙整：每專案取本週最新一筆更新，依大分類分組
+    # 本週進度彙整：每專案取本週最新一筆更新，依大分類分組（排除已取消）
     proj_updates_raw = conn.execute("""
         SELECT
             p.id, p.項目編號, p.部門, p.任務場景名稱,
@@ -179,6 +224,7 @@ def get_dashboard_data():
             GROUP BY project_id
         ) latest ON latest.project_id = p.id
         JOIN weekly_updates u ON u.id = latest.max_id
+        WHERE p.推進狀態 != '已取消'
         ORDER BY p.部門, p.項目編號
     """).fetchall()
 

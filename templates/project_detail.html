@@ -37,6 +37,19 @@
       {% endif %}
     </div>
 
+    <!-- 已取消提示 -->
+    {% if project.推進狀態 == '已取消' %}
+    <div class="alert alert-secondary d-flex gap-2 align-items-start mb-3">
+      <i class="bi bi-x-circle-fill mt-1"></i>
+      <div>
+        <div class="fw-semibold">此專案已取消</div>
+        {% if project.cancel_reason %}
+        <div class="small mt-1">{{ project.cancel_reason }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     <!-- 基本資料 -->
     <div class="card p-4">
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -144,13 +157,39 @@
         </form>
       </div>
     </div>
+
+    <!-- 取消專案 -->
+    {% if current_user and not current_user.is_guest and project.推進狀態 != '已取消' %}
+    <div class="card p-3 mt-3" style="border-left:3px solid #dc3545">
+      <div id="cancelView" class="d-flex align-items-center justify-content-between">
+        <span class="small text-muted">需要取消此專案？</span>
+        <button class="btn btn-sm btn-outline-danger" onclick="toggleCancel()">
+          <i class="bi bi-x-circle me-1"></i>取消此專案
+        </button>
+      </div>
+      <div id="cancelForm" style="display:none">
+        <form method="post" action="{{ url_for('project_cancel', pid=project.id) }}">
+          <label class="form-label small fw-semibold mb-1 text-danger">取消原因 <span class="text-danger">*</span></label>
+          <textarea name="cancel_reason" class="form-control form-control-sm mb-2" rows="3"
+                    placeholder="請說明取消原因…" required></textarea>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-sm btn-danger">
+              <i class="bi bi-check me-1"></i>確認取消
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleCancel()">返回</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 
   <!-- 右欄：填寫週報 + 歷史 -->
   <div class="col-lg-8">
 
     <!-- 填寫本週進度 -->
-    {% if current_user and not current_user.is_guest %}
+    {% if current_user and not current_user.is_guest and project.推進狀態 != '已取消' %}
     <div class="card p-4 mb-4">
       <h6 class="fw-bold mb-3 text-muted"><i class="bi bi-pencil-square me-2"></i>填寫本週進度</h6>
       <form method="post" action="{{ url_for('project_update', pid=project.id) }}">
@@ -231,6 +270,15 @@
 
 {% block scripts %}
 <script>
+function toggleCancel() {
+  const v = document.getElementById('cancelView');
+  const f = document.getElementById('cancelForm');
+  if (!v || !f) return;
+  const showing = f.style.display !== 'none';
+  v.style.display = showing ? '' : 'none';
+  f.style.display = showing ? 'none' : '';
+}
+
 function toggleEdit() {
   const view = document.getElementById('viewMode');
   const edit = document.getElementById('editMode');

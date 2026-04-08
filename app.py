@@ -117,9 +117,14 @@ def projects():
         status=status or None,
         dev_type=dev_type or None,
     )
+    cancelled = db.get_cancelled_projects(
+        dept=dept or None,
+        dev_type=dev_type or None,
+    )
     return render_template(
         "projects.html",
         projects=items,
+        cancelled_projects=cancelled,
         dept_tree=db.DEPT_TREE,
         dept_list=db.DEPT_LIST,
         statuses=db.STATUSES,
@@ -205,6 +210,18 @@ def project_status(pid):
     if status in db.STATUSES:
         db.update_project_status(pid, status)
         flash(f"狀態已更新為「{status}」", "success")
+    return redirect(url_for("project_detail", pid=pid))
+
+
+@app.route("/project/<int:pid>/cancel", methods=["POST"])
+@require_login
+def project_cancel(pid):
+    reason = request.form.get("cancel_reason", "").strip()
+    if not reason:
+        flash("請填寫取消原因", "warning")
+        return redirect(url_for("project_detail", pid=pid))
+    db.cancel_project(pid, reason)
+    flash("專案已標記為已取消", "success")
     return redirect(url_for("project_detail", pid=pid))
 
 
