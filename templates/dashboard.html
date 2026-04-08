@@ -135,7 +135,7 @@
     {% for region_name, color, icon in region_styles %}
     {% set projects = data.weekly_by_region.get(region_name, []) %}
     <div class="col-md-4">
-      <div class="h-100 rounded-3 p-3" style="background:#f8f9fa;border-left:4px solid {{ color }}">
+      <div class="rounded-3 p-3" style="background:#f8f9fa;border-left:4px solid {{ color }}">
         <div class="d-flex align-items-center mb-3">
           <i class="bi {{ icon }} me-2" style="color:{{ color }}"></i>
           <span class="fw-bold" style="color:{{ color }}">{{ region_name }}</span>
@@ -144,6 +144,7 @@
           {% endif %}
         </div>
 
+        <div style="max-height:370px;overflow-y:auto;padding-right:2px">
         {% if projects %}
         {% for p in projects %}
         <div class="mb-3 pb-2{% if not loop.last %} border-bottom{% endif %}">
@@ -171,6 +172,7 @@
           <i class="bi bi-inbox d-block mb-1"></i>本週無更新
         </div>
         {% endif %}
+        </div>
       </div>
     </div>
     {% endfor %}
