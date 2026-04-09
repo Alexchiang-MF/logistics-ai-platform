@@ -294,13 +294,19 @@ def projects_export_csv():
         ])
     w.writerow(['', '', '', '', '', '月節省時數合計', f'{total_saving}小時'])
 
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+    week_str = f"{monday.month:02d}{monday.day:02d}-{sunday.month:02d}{sunday.day:02d}"
+    filename = f"progress_report_{week_str}.csv"
+
     buf.seek(0)
     # utf-8-sig BOM → Excel 可直接開啟中文
     content = '\ufeff' + buf.getvalue()
     return Response(
         content,
         mimetype='text/csv; charset=utf-8',
-        headers={'Content-Disposition': 'attachment; filename="progress_report.csv"'},
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
     )
 
 
