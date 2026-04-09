@@ -251,7 +251,7 @@ def _export_sort_key(p):
 
 
 @app.route("/projects/export")
-@require_auth
+@require_login
 def projects_export():
     rows = db.get_export_data()
     rows.sort(key=_export_sort_key)
@@ -272,7 +272,7 @@ def projects_export():
 
 
 @app.route("/projects/export/csv")
-@require_auth
+@require_login
 def projects_export_csv():
     rows = db.get_export_data()
     rows.sort(key=_export_sort_key)
