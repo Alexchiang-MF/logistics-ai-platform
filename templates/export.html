@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>專案進度總表</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Microsoft JhengHei', Arial, sans-serif;
+      font-size: 12px;
+      color: #111;
+      background: #fff;
+      padding: 24px 28px;
+    }
+
+    /* ── 頁首 ── */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+    .page-header h1 {
+      font-size: 15px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .page-header .meta { font-size: 11px; color: #555; }
+    .actions { display: flex; gap: 8px; }
+    .btn {
+      padding: 6px 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-primary { background: #1a2e4a; color: #fff; border-color: #1a2e4a; }
+    .btn-outline  { background: #fff;    color: #1a2e4a; }
+
+    /* ── 表格 ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    col.c-no       { width: 38px; }
+    col.c-dept     { width: 80px; }
+    col.c-name     { width: 160px; }
+    col.c-ai       { width: 130px; }
+    col.c-progress { width: auto; }
+    col.c-status   { width: 76px; }
+    col.c-saving   { width: 80px; }
+
+    th, td {
+      border: 1px solid #000;
+      padding: 5px 7px;
+      vertical-align: top;
+      word-break: break-all;
+    }
+    th {
+      background: #dce6f1;
+      font-weight: bold;
+      text-align: center;
+      white-space: nowrap;
+    }
+    td.center { text-align: center; }
+    td.right  { text-align: right; }
+
+    /* 本週有進度 → 淡藍底 */
+    tr.has-update td { background: #f0f7ff; }
+
+    /* 正式啟用 → 淡綠底 */
+    tr.formal td { background: #f0fff4; }
+
+    /* 合計列 */
+    tfoot tr td {
+      font-weight: bold;
+      background: #f2f2f2;
+      text-align: right;
+    }
+    tfoot tr td:last-child { text-align: center; }
+
+    /* 圖例 */
+    .legend {
+      display: flex;
+      gap: 18px;
+      margin-top: 10px;
+      font-size: 11px;
+      color: #555;
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-box  { width: 14px; height: 14px; border: 1px solid #999; flex-shrink: 0; }
+
+    @media print {
+      .no-print { display: none !important; }
+      body { padding: 0; font-size: 11px; }
+      col.c-name { width: 150px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>物流本部 AI 開發管理平台 ── 專案進度總表</h1>
+    <div class="meta">本週：{{ week_range }} &nbsp;・&nbsp; 匯出日期：{{ export_time }}</div>
+  </div>
+  <div class="actions no-print">
+    <a href="{{ url_for('projects_export_csv') }}" class="btn btn-outline">
+      ↓ 下載 CSV（Excel）
+    </a>
+    <button class="btn btn-primary" onclick="window.print()">
+      🖨 列印 / 存成 PDF
+    </button>
+    <a href="{{ url_for('projects') }}" class="btn btn-outline">← 返回總覽</a>
+  </div>
+</div>
+
+<table>
+  <colgroup>
+    <col class="c-no">
+    <col class="c-dept">
+    <col class="c-name">
+    <col class="c-ai">
+    <col class="c-progress">
+    <col class="c-status">
+    <col class="c-saving">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>部門</th>
+      <th>任務場景名稱</th>
+      <th>AI用途分類</th>
+      <th>本週進度摘要</th>
+      <th>推進狀態</th>
+      <th>節省時數(月)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in projects %}
+    {% set dept_short = p.部門.split('/')[-1] if '/' in p.部門 else p.部門 %}
+    <tr class="{% if p.本週進度 %}has-update{% elif p.推進狀態 == '正式啟用' %}formal{% endif %}">
+      <td class="center">{{ p.項目編號 }}</td>
+      <td>{{ dept_short }}</td>
+      <td>{{ p.任務場景名稱 }}</td>
+      <td>{{ p.AI用途分類 or '' }}</td>
+      <td>{{ p.本週進度 or '' }}</td>
+      <td class="center">{{ p.推進狀態 }}</td>
+      <td class="center">{{ p.節省時數_每月 or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="6">月節省時數合計</td>
+      <td>{{ total_saving }} 小時</td>
+    </tr>
+  </tfoot>
+</table>
+
+<div class="legend no-print">
+  <div class="legend-item">
+    <div class="legend-box" style="background:#f0f7ff"></div>本週有進度更新
+  </div>
+  <div class="legend-item">
+    <div class="legend-box" style="background:#f0fff4"></div>正式啟用
+  </div>
+</div>
+
+</body>
+</html>

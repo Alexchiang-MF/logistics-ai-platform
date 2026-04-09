@@ -1,7 +1,8 @@
 import os
 from datetime import date, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session, Response
+import csv, io
 import database as db
 
 app = Flask(__name__)
@@ -236,6 +237,71 @@ def project_edit(pid):
     db.update_project_info(pid, data)
     flash("專案資訊已更新", "success")
     return redirect(url_for("project_detail", pid=pid))
+
+
+# ── Export ─────────────────────────────────────────────────────────────────────
+
+STATUS_EXPORT_ORDER = {'模板測試中': 0, '開發中': 1, '商談中': 2, '正式啟用': 99}
+
+def _export_sort_key(p):
+    is_formal   = 1 if p['推進狀態'] == '正式啟用' else 0
+    no_update   = 0 if p.get('本週進度') else 1   # 有本週進度 = 0，排前面
+    status_rank = STATUS_EXPORT_ORDER.get(p['推進狀態'], 98)
+    return (is_formal, no_update, status_rank)
+
+
+@app.route("/projects/export")
+@require_auth
+def projects_export():
+    rows = db.get_export_data()
+    rows.sort(key=_export_sort_key)
+    total_saving = round(sum(db._parse_hours(r['節省時數_每月']) for r in rows), 1)
+
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+    week_range = f"{monday.month}/{monday.day} – {sunday.month}/{sunday.day}"
+
+    return render_template(
+        "export.html",
+        projects=rows,
+        total_saving=total_saving,
+        week_range=week_range,
+        export_time=today.strftime("%Y-%m-%d"),
+    )
+
+
+@app.route("/projects/export/csv")
+@require_auth
+def projects_export_csv():
+    rows = db.get_export_data()
+    rows.sort(key=_export_sort_key)
+    total_saving = round(sum(db._parse_hours(r['節省時數_每月']) for r in rows), 1)
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['#', '部門', '任務場景名稱', 'AI用途分類', '本週進度摘要', '推進狀態', '節省時數(月)'])
+    for p in rows:
+        dept = p['部門'] or ''
+        w.writerow([
+            p['項目編號'],
+            dept.split('/')[-1] if '/' in dept else dept,
+            p['任務場景名稱'],
+            p['AI用途分類'] or '',
+            p['本週進度'] or '',
+            p['推進狀態'],
+            p['節省時數_每月'] or '',
+        ])
+    w.writerow(['', '', '', '', '', '月節省時數合計', f'{total_saving}小時'])
+
+    buf.seek(0)
+    # utf-8-sig BOM → Excel 可直接開啟中文
+    content = '\ufeff' + buf.getvalue()
+    return Response(
+        content,
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': 'attachment; filename="progress_report.csv"'},
+    )
 
 
 if __name__ == "__main__":

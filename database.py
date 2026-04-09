@@ -268,6 +268,28 @@ def get_dashboard_data():
     }
 
 
+def get_export_data():
+    """匯出用：所有非取消專案 + 本週最新一筆進度內容。"""
+    conn = get_conn()
+    rows = conn.execute("""
+        SELECT
+            p.項目編號, p.部門, p.任務場景名稱, p.AI用途分類,
+            p.節省時數_每月, p.推進狀態,
+            u.本週進度內容 AS 本週進度
+        FROM projects p
+        LEFT JOIN (
+            SELECT project_id, MAX(id) AS max_id
+            FROM weekly_updates
+            WHERE week_start >= date('now','weekday 0','-7 days')
+            GROUP BY project_id
+        ) latest ON latest.project_id = p.id
+        LEFT JOIN weekly_updates u ON u.id = latest.max_id
+        WHERE p.推進狀態 != '已取消'
+    """).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def get_distinct_depts():
     conn = get_conn()
     rows = conn.execute("SELECT DISTINCT 部門 FROM projects ORDER BY 部門").fetchall()
