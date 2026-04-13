@@ -136,6 +136,16 @@ def change_password(username, new_password):
     conn.close()
 
 
+def create_user(username, password, display):
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO users (username, password, display, is_admin) VALUES (?,?,?,0)",
+        (username.lower(), password, display)
+    )
+    conn.commit()
+    conn.close()
+
+
 def get_all_users_list():
     conn = get_conn()
     rows = conn.execute("SELECT username, display, is_admin FROM users ORDER BY is_admin DESC, username").fetchall()

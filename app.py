@@ -133,6 +133,22 @@ def admin_users():
     return render_template("admin_users.html", users=users)
 
 
+@app.route("/admin/create-user", methods=["POST"])
+@require_admin
+def admin_create_user():
+    username = request.form.get("username", "").strip().lower()
+    password = request.form.get("password", "").strip()
+    display = request.form.get("display", "").strip()
+    if not username or not password or not display:
+        flash("帳號、密碼、顯示名稱皆為必填", "warning")
+    elif db.get_user(username):
+        flash(f"帳號 {username} 已存在", "danger")
+    else:
+        db.create_user(username, password, display)
+        flash(f"已建立帳號 {username}（{display}）", "success")
+    return redirect(url_for('admin_users'))
+
+
 @app.route("/admin/reset-password/<username>", methods=["POST"])
 @require_admin
 def admin_reset_password(username):
