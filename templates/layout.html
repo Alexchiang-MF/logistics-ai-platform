@@ -94,7 +94,7 @@
        class="nav-link {% if request.endpoint in ['projects','project_detail'] %}active{% endif %}">
       <i class="bi bi-kanban"></i> 專案總覽
     </a>
-    {% if current_user and not current_user.is_guest %}
+    {% if current_user and not current_user.is_readonly %}
     <a href="{{ url_for('change_password') }}"
        class="nav-link {% if request.endpoint == 'change_password' %}active{% endif %}">
       <i class="bi bi-key"></i> 修改密碼
@@ -105,6 +105,10 @@
        class="nav-link {% if request.endpoint in ['admin_users'] %}active{% endif %}">
       <i class="bi bi-shield-lock"></i> 帳號管理
     </a>
+    <a href="{{ url_for('admin_backups') }}"
+       class="nav-link {% if request.endpoint in ['admin_backups'] %}active{% endif %}">
+      <i class="bi bi-cloud-arrow-down"></i> 備份管理
+    </a>
     {% endif %}
   </nav>
   <div style="position:absolute;bottom:0;width:100%;border-top:1px solid rgba(255,255,255,.12);padding:14px 18px;">
@@ -112,7 +116,7 @@
       <i class="bi bi-person-circle me-1"></i>
       {% if current_user %}
         {{ current_user.display }}
-        {% if current_user.is_guest %}
+        {% if current_user.is_readonly %}
           <span class="badge bg-secondary ms-1" style="font-size:.65rem;vertical-align:middle">訪客</span>
         {% endif %}
       {% endif %}
@@ -124,6 +128,21 @@
 </div>
 
 <div class="main-content">
+  {% if renewal_warning %}
+  <div class="alert alert-danger d-flex align-items-center gap-2" role="alert">
+    <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+    <div>
+      <strong>PythonAnywhere 延期提醒：</strong>距離上次延期已 <strong>{{ renewal_warning }}</strong> 天，
+      免費帳戶 90 天未延期將自動停用！請至
+      <a href="https://www.pythonanywhere.com/user/Alexchiang/webapps/" target="_blank" class="alert-link">PythonAnywhere Web 頁面</a>
+      點擊「Run until」延期，完成後
+      <form method="post" action="{{ url_for('admin_renewal_reset') }}" class="d-inline">
+        <button type="submit" class="btn btn-sm btn-outline-danger">點此重設計時</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for cat, msg in messages %}
     <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">

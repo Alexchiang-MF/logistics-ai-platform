@@ -60,6 +60,8 @@
           <td>
             {% if u.is_admin %}
             <span class="badge bg-danger">管理員</span>
+            {% elif u.is_readonly %}
+            <span class="badge bg-info text-dark">唯讀</span>
             {% else %}
             <span class="badge bg-secondary">一般用戶</span>
             {% endif %}

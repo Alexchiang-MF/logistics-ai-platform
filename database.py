@@ -1,6 +1,8 @@
 import sqlite3
 import os
 import re
+import csv
+from datetime import date, timedelta
 
 
 def _parse_hours(val):
@@ -77,10 +79,17 @@ def init_users():
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             display  TEXT NOT NULL,
-            is_admin INTEGER DEFAULT 0
+            is_admin INTEGER DEFAULT 0,
+            is_readonly INTEGER DEFAULT 0
         )
     """)
     conn.commit()
+    # 舊資料庫補欄位
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN is_readonly INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass
     count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
     if count == 0:
         seed = [
@@ -116,6 +125,14 @@ def init_users():
         conn.executemany(
             "INSERT INTO users (username, password, display, is_admin) VALUES (?,?,?,?)", seed
         )
+    # 確保 viewer 帳號存在且 is_readonly=1
+    if not conn.execute("SELECT 1 FROM users WHERE username='viewer'").fetchone():
+        conn.execute(
+            "INSERT INTO users (username, password, display, is_admin, is_readonly) VALUES (?,?,?,0,1)",
+            ('viewer', 'viewer', '唯讀使用者')
+        )
+    else:
+        conn.execute("UPDATE users SET is_readonly=1 WHERE username='viewer'")
         conn.commit()
     conn.close()
 
@@ -148,7 +165,9 @@ def create_user(username, password, display):
 
 def get_all_users_list():
     conn = get_conn()
-    rows = conn.execute("SELECT username, display, is_admin FROM users ORDER BY is_admin DESC, username").fetchall()
+    rows = conn.execute(
+        "SELECT username, display, is_admin, is_readonly FROM users ORDER BY is_admin DESC, is_readonly, username"
+    ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -383,6 +402,126 @@ def get_distinct_depts():
     rows = conn.execute("SELECT DISTINCT 部門 FROM projects ORDER BY 部門").fetchall()
     conn.close()
     return [r[0] for r in rows]
+
+
+# ── 自動備份 ─────────────────────────────────────────────────────────────────
+
+BACKUP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backups")
+BACKUP_INTERVAL_DAYS = 30
+
+
+def _last_backup_date():
+    """讀取最後一次備份的日期。"""
+    marker = os.path.join(BACKUP_DIR, ".last_backup")
+    if os.path.exists(marker):
+        try:
+            return date.fromisoformat(open(marker).read().strip())
+        except Exception:
+            pass
+    return None
+
+
+def check_and_run_backup():
+    """若距離上次備份已超過 30 天，自動執行備份。"""
+    last = _last_backup_date()
+    if last and (date.today() - last).days < BACKUP_INTERVAL_DAYS:
+        return False
+    return run_backup()
+
+
+def run_backup():
+    """匯出所有專案與每週紀錄為 CSV，存入 backups/ 資料夾。"""
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    today_str = date.today().strftime("%Y%m%d")
+    conn = get_conn()
+
+    # 專案清單
+    projects = conn.execute("SELECT * FROM projects ORDER BY 項目編號").fetchall()
+    if projects:
+        cols = projects[0].keys()
+        with open(os.path.join(BACKUP_DIR, f"projects_{today_str}.csv"), "w",
+                  newline="", encoding="utf-8-sig") as f:
+            w = csv.writer(f)
+            w.writerow(cols)
+            for r in projects:
+                w.writerow([r[c] for c in cols])
+
+    # 每週進度紀錄
+    updates = conn.execute("""
+        SELECT u.*, p.任務場景名稱, p.部門
+        FROM weekly_updates u
+        JOIN projects p ON p.id = u.project_id
+        ORDER BY u.week_start DESC, u.id DESC
+    """).fetchall()
+    if updates:
+        cols = updates[0].keys()
+        with open(os.path.join(BACKUP_DIR, f"weekly_updates_{today_str}.csv"), "w",
+                  newline="", encoding="utf-8-sig") as f:
+            w = csv.writer(f)
+            w.writerow(cols)
+            for r in updates:
+                w.writerow([r[c] for c in cols])
+
+    conn.close()
+
+    # 記錄備份日期
+    with open(os.path.join(BACKUP_DIR, ".last_backup"), "w") as f:
+        f.write(date.today().isoformat())
+
+    # 清理 90 天前的舊備份
+    cutoff = date.today() - timedelta(days=90)
+    for fn in os.listdir(BACKUP_DIR):
+        if fn.startswith(("projects_", "weekly_updates_")) and fn.endswith(".csv"):
+            try:
+                d = date(int(fn[-12:-8]), int(fn[-8:-6]), int(fn[-6:-4]))
+                if d < cutoff:
+                    os.remove(os.path.join(BACKUP_DIR, fn))
+            except Exception:
+                pass
+
+    return True
+
+
+def get_backup_list():
+    """取得所有備份檔案清單。"""
+    if not os.path.exists(BACKUP_DIR):
+        return []
+    files = []
+    for fn in sorted(os.listdir(BACKUP_DIR), reverse=True):
+        if fn.endswith(".csv"):
+            path = os.path.join(BACKUP_DIR, fn)
+            size_kb = round(os.path.getsize(path) / 1024, 1)
+            files.append({"filename": fn, "size_kb": size_kb})
+    return files
+
+
+# ── PythonAnywhere 延期提醒 ──────────────────────────────────────────────────
+
+RENEWAL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "renewal_date.txt")
+
+
+def get_renewal_info():
+    """回傳 (renewal_date, days_elapsed, should_warn)。"""
+    if os.path.exists(RENEWAL_FILE):
+        try:
+            renewal = date.fromisoformat(open(RENEWAL_FILE).read().strip())
+        except Exception:
+            renewal = date.today()
+            save_renewal_date(renewal)
+    else:
+        renewal = date.today()
+        save_renewal_date(renewal)
+    elapsed = (date.today() - renewal).days
+    return renewal, elapsed, elapsed >= 80
+
+
+def save_renewal_date(d=None):
+    """更新延期日期（預設為今天）。"""
+    if d is None:
+        d = date.today()
+    os.makedirs(os.path.dirname(RENEWAL_FILE), exist_ok=True)
+    with open(RENEWAL_FILE, "w") as f:
+        f.write(d.isoformat())
 
 
 STATUSES = ["商談中", "開發中", "模板測試中", "正式啟用"]

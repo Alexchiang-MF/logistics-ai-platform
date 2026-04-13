@@ -1,0 +1,94 @@
+{% extends "layout.html" %}
+{% block title %}備份管理{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+  <h1><i class="bi bi-cloud-arrow-down me-2"></i>備份管理</h1>
+  <form method="post" action="{{ url_for('admin_backup_now') }}">
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-download me-1"></i>立即備份
+    </button>
+  </form>
+</div>
+
+<!-- 備份狀態 -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card p-3 h-100">
+      <div class="text-muted small mb-1"><i class="bi bi-clock-history me-1"></i>上次自動備份</div>
+      <div class="fw-bold fs-5">
+        {% if last_backup %}{{ last_backup }}{% else %}<span class="text-warning">尚未備份</span>{% endif %}
+      </div>
+      <div class="text-muted small mt-1">每 30 天自動執行，保留 90 天內備份</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3 h-100">
+      <div class="text-muted small mb-1"><i class="bi bi-server me-1"></i>PythonAnywhere 延期狀態</div>
+      <div class="fw-bold fs-5">
+        {% if renewal_elapsed >= 80 %}
+        <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>已 {{ renewal_elapsed }} 天</span>
+        {% else %}
+        <span class="text-success">已 {{ renewal_elapsed }} 天</span>
+        <span class="text-muted small">（80 天後提醒）</span>
+        {% endif %}
+      </div>
+      <div class="text-muted small mt-1">上次延期：{{ renewal_date }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3 h-100 d-flex justify-content-center">
+      <div class="text-muted small mb-2">完成 PythonAnywhere 延期後，點此重設計時：</div>
+      <form method="post" action="{{ url_for('admin_renewal_reset') }}">
+        <button type="submit" class="btn btn-outline-success btn-sm w-100">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>已完成延期，重設計時
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- 備份檔案列表 -->
+<div class="card">
+  <div class="card-header bg-white fw-bold">
+    <i class="bi bi-folder2-open me-2"></i>備份檔案列表
+  </div>
+  {% if backups %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>檔案名稱</th>
+          <th>大小</th>
+          <th style="width:120px">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in backups %}
+        <tr>
+          <td>
+            <i class="bi bi-file-earmark-spreadsheet me-1 text-success"></i>
+            {{ b.filename }}
+          </td>
+          <td class="text-muted">{{ b.size_kb }} KB</td>
+          <td>
+            <a href="{{ url_for('admin_backup_download', filename=b.filename) }}"
+               class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-download me-1"></i>下載
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center text-muted py-4">
+    <i class="bi bi-inbox fs-2 d-block mb-2"></i>尚無備份檔案，點擊「立即備份」建立第一份備份
+  </div>
+  {% endif %}
+  <div class="p-3 text-muted small border-top">
+    共 {{ backups|length }} 個備份檔案
+  </div>
+</div>
+{% endblock %}

@@ -1,7 +1,7 @@
 import os
 from datetime import date, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session, Response
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session, Response, send_file
 import csv, io
 import database as db
 
@@ -22,14 +22,23 @@ def get_current_user():
                 'is_guest': False,
                 'is_admin': bool(u['is_admin']),
             }
-    if session.get('is_guest'):
-        return {'username': 'guest', 'display': '訪客', 'is_guest': True}
     return None
 
 
 @app.context_processor
 def inject_user():
-    return dict(current_user=get_current_user())
+    user = get_current_user()
+    renewal_warning = None
+    if user and user.get('is_admin'):
+        _, elapsed, should_warn = db.get_renewal_info()
+        if should_warn:
+            renewal_warning = elapsed
+    return dict(current_user=user, renewal_warning=renewal_warning)
+
+
+@app.before_request
+def auto_backup():
+    db.check_and_run_backup()
 
 
 def require_auth(f):
@@ -66,11 +75,6 @@ def login():
     if get_current_user():
         return redirect(url_for('dashboard'))
     if request.method == "POST":
-        action = request.form.get('action')
-        if action == 'guest':
-            session.clear()
-            session['is_guest'] = True
-            return redirect(url_for('dashboard'))
         username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '').strip()
         user = db.get_user(username)
@@ -119,9 +123,23 @@ def require_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         user = get_current_user()
-        if not user or user.get('is_guest') or not user.get('is_admin'):
+        if not user or not user.get('is_admin'):
             flash('需要管理員權限', 'danger')
             return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def require_edit(f):
+    """唯讀帳號不可執行寫入操作。"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return redirect(url_for('login'))
+        if user.get('is_readonly'):
+            flash("唯讀帳號無法執行此操作", "warning")
+            return redirect(request.referrer or url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated
 
@@ -159,6 +177,45 @@ def admin_reset_password(username):
         db.change_password(username, new_pw)
         flash(f"已重設 {username} 的密碼", "success")
     return redirect(url_for('admin_users'))
+
+
+@app.route("/admin/backups")
+@require_admin
+def admin_backups():
+    backups = db.get_backup_list()
+    last = db._last_backup_date()
+    renewal_date, elapsed, _ = db.get_renewal_info()
+    return render_template("admin_backups.html",
+                           backups=backups, last_backup=last,
+                           renewal_date=renewal_date, renewal_elapsed=elapsed)
+
+
+@app.route("/admin/backup-now", methods=["POST"])
+@require_admin
+def admin_backup_now():
+    db.run_backup()
+    flash("已完成備份", "success")
+    return redirect(url_for('admin_backups'))
+
+
+@app.route("/admin/backup-download/<filename>")
+@require_admin
+def admin_backup_download(filename):
+    import os
+    safe_name = os.path.basename(filename)
+    path = os.path.join(db.BACKUP_DIR, safe_name)
+    if not os.path.exists(path):
+        flash("檔案不存在", "danger")
+        return redirect(url_for('admin_backups'))
+    return send_file(path, as_attachment=True, download_name=safe_name)
+
+
+@app.route("/admin/renewal-reset", methods=["POST"])
+@require_admin
+def admin_renewal_reset():
+    db.save_renewal_date()
+    flash("已更新 PythonAnywhere 延期日期為今天", "success")
+    return redirect(url_for('admin_backups'))
 
 
 # ── Dashboard ──────────────────────────────────────────────────────────────────
@@ -208,7 +265,7 @@ def projects():
 
 
 @app.route("/projects/new", methods=["POST"])
-@require_login
+@require_edit
 def project_new():
     def f(key):
         return request.form.get(key, "").strip()
@@ -259,7 +316,7 @@ def project_detail(pid):
 
 
 @app.route("/project/<int:pid>/update", methods=["POST"])
-@require_login
+@require_edit
 def project_update(pid):
     week_start = request.form.get("week_start", this_monday())
     filler = request.form.get("填寫人", "").strip()
@@ -276,7 +333,7 @@ def project_update(pid):
 
 
 @app.route("/project/<int:pid>/status", methods=["POST"])
-@require_login
+@require_edit
 def project_status(pid):
     status = request.form.get("推進狀態")
     if status in db.STATUSES:
@@ -286,7 +343,7 @@ def project_status(pid):
 
 
 @app.route("/project/<int:pid>/cancel", methods=["POST"])
-@require_login
+@require_edit
 def project_cancel(pid):
     reason = request.form.get("cancel_reason", "").strip()
     if not reason:
@@ -299,7 +356,7 @@ def project_cancel(pid):
 
 
 @app.route("/project/<int:pid>/edit", methods=["POST"])
-@require_login
+@require_edit
 def project_edit(pid):
     fields = ['任務場景名稱', '部門', '開發方式', '節省時數_每月',
               '每次執行耗費時間', '每月執行頻率', '有需求人數',
