@@ -94,6 +94,18 @@
        class="nav-link {% if request.endpoint in ['projects','project_detail'] %}active{% endif %}">
       <i class="bi bi-kanban"></i> 專案總覽
     </a>
+    {% if current_user and not current_user.is_guest %}
+    <a href="{{ url_for('change_password') }}"
+       class="nav-link {% if request.endpoint == 'change_password' %}active{% endif %}">
+      <i class="bi bi-key"></i> 修改密碼
+    </a>
+    {% endif %}
+    {% if current_user and current_user.is_admin is defined and current_user.is_admin %}
+    <a href="{{ url_for('admin_users') }}"
+       class="nav-link {% if request.endpoint in ['admin_users'] %}active{% endif %}">
+      <i class="bi bi-shield-lock"></i> 帳號管理
+    </a>
+    {% endif %}
   </nav>
   <div style="position:absolute;bottom:0;width:100%;border-top:1px solid rgba(255,255,255,.12);padding:14px 18px;">
     <div class="text-white-50 small mb-2" style="line-height:1.4">

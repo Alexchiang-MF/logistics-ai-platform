@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+{% block title %}帳號管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="bi bi-people me-2"></i>帳號管理</h1>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>帳號</th>
+          <th>顯示名稱</th>
+          <th>角色</th>
+          <th style="width:280px">重設密碼</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td class="fw-semibold">{{ u.username }}</td>
+          <td>{{ u.display }}</td>
+          <td>
+            {% if u.is_admin %}
+            <span class="badge bg-danger">管理員</span>
+            {% else %}
+            <span class="badge bg-secondary">一般用戶</span>
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('admin_reset_password', username=u.username) }}"
+                  class="d-flex gap-2" onsubmit="return confirm('確定要重設 {{ u.display }} 的密碼？')">
+              <input type="password" name="new_password" class="form-control form-control-sm"
+                     placeholder="輸入新密碼" required minlength="3" style="max-width:160px">
+              <button type="submit" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-arrow-repeat me-1"></i>重設
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="p-3 text-muted small border-top">
+    共 {{ users|length }} 位用戶
+  </div>
+</div>
+{% endblock %}

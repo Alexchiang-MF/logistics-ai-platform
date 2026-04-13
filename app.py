@@ -9,21 +9,19 @@ app = Flask(__name__)
 app.secret_key = "ai-platform-2024"
 
 db.init_db()
-
-USERS = {
-    'inari':      {'password': 'inari',      'display': '李筱筠'},
-    'adychang':   {'password': 'adychang',   'display': '張綾娟'},
-    'c830627':    {'password': 'c830627',    'display': '蘇柏任'},
-    'alexchiang': {'password': 'alexchiang', 'display': '姜淼方'},
-    'tienyu':     {'password': 'tienyu',     'display': '柯典佑'},
-}
+db.init_users()
 
 
 def get_current_user():
     if session.get('username'):
-        u = USERS.get(session['username'])
+        u = db.get_user(session['username'])
         if u:
-            return {'username': session['username'], 'display': u['display'], 'is_guest': False}
+            return {
+                'username': u['username'],
+                'display': u['display'],
+                'is_guest': False,
+                'is_admin': bool(u['is_admin']),
+            }
     if session.get('is_guest'):
         return {'username': 'guest', 'display': '訪客', 'is_guest': True}
     return None
@@ -73,12 +71,12 @@ def login():
             session.clear()
             session['is_guest'] = True
             return redirect(url_for('dashboard'))
-        username = request.form.get('username', '').strip()
+        username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '').strip()
-        user = USERS.get(username)
+        user = db.get_user(username)
         if user and user['password'] == password:
             session.clear()
-            session['username'] = username
+            session['username'] = user['username']
             return redirect(url_for('dashboard'))
         flash('帳號或密碼錯誤', 'danger')
     return render_template('login.html')
@@ -88,6 +86,63 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+
+# ── Change Password ───────────────────────────────────────────────────────────
+
+@app.route("/change-password", methods=["GET", "POST"])
+@require_login
+def change_password():
+    if request.method == "POST":
+        old_pw = request.form.get("old_password", "").strip()
+        new_pw = request.form.get("new_password", "").strip()
+        confirm = request.form.get("confirm_password", "").strip()
+        user = db.get_user(session['username'])
+
+        if not user or user['password'] != old_pw:
+            flash("舊密碼錯誤", "danger")
+        elif len(new_pw) < 3:
+            flash("新密碼至少需要 3 個字元", "warning")
+        elif new_pw != confirm:
+            flash("兩次新密碼不一致", "warning")
+        else:
+            db.change_password(session['username'], new_pw)
+            flash("密碼修改成功", "success")
+            return redirect(url_for('dashboard'))
+
+    return render_template("change_password.html")
+
+
+# ── Admin ─────────────────────────────────────────────────────────────────────
+
+def require_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = get_current_user()
+        if not user or user.get('is_guest') or not user.get('is_admin'):
+            flash('需要管理員權限', 'danger')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.route("/admin/users")
+@require_admin
+def admin_users():
+    users = db.get_all_users_list()
+    return render_template("admin_users.html", users=users)
+
+
+@app.route("/admin/reset-password/<username>", methods=["POST"])
+@require_admin
+def admin_reset_password(username):
+    new_pw = request.form.get("new_password", "").strip()
+    if not new_pw or len(new_pw) < 3:
+        flash("密碼至少需要 3 個字元", "warning")
+    else:
+        db.change_password(username, new_pw)
+        flash(f"已重設 {username} 的密碼", "success")
+    return redirect(url_for('admin_users'))
 
 
 # ── Dashboard ──────────────────────────────────────────────────────────────────

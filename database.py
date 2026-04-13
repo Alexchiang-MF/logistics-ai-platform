@@ -67,6 +67,84 @@ def init_db():
     conn.close()
 
 
+# ── 使用者管理 ────────────────────────────────────────────────────────────────
+
+def init_users():
+    conn = get_conn()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            display  TEXT NOT NULL,
+            is_admin INTEGER DEFAULT 0
+        )
+    """)
+    conn.commit()
+    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if count == 0:
+        seed = [
+            ('inari',       'inari',       '李筱筠', 0),
+            ('adychang',    'adychang',    '張綾娟', 0),
+            ('c830627',     'c830627',     '蘇柏任', 0),
+            ('alexchiang',  'alexchiang',  '姜淼方', 0),
+            ('tienyu',      'tienyu',      '柯典佑', 0),
+            ('jerry16899',  'jerry16899',  '黃則翰', 0),
+            ('kun1201',     'kun1201',     '楊裔堃', 0),
+            ('lv6868',      'lv6868',      '温惠君', 0),
+            ('luo',         'luo',         '駱佩妏', 0),
+            ('huei',        'huei',        '蕭嘉慧', 0),
+            ('avon',        'avon',        '林雅芳', 0),
+            ('kelly1009',   'kelly1009',   '呂羿螢', 0),
+            ('redwu',       'redwu',       '吳竑儒', 0),
+            ('chinhon',     'chinhon',     '蔡承翰', 0),
+            ('duck1027',    'duck1027',    '李淑芬', 0),
+            ('bin.liu',     'bin.liu',     '劉宏斌', 0),
+            ('mgmg.wang',   'mgmg.wang',   '王筱鎂', 0),
+            ('ann5410',     'ann5410',     '蔡宥婕', 0),
+            ('pisece320',   'pisece320',   '黃欣婷', 0),
+            ('kinant',      'kinant',      '馬尹婕', 0),
+            ('vincent',     'vincent',     '黃文呈', 0),
+            ('grace',       'grace',       '李貴瑜', 0),
+            ('5000xp',      '5000xp',      '余武謙', 0),
+            ('alanwn',      'alanwn',      '王世輝', 0),
+            ('david0403',   'david0403',   '黃冠龍', 0),
+            ('l098316816',  'l098316816',  '楊凱汎', 0),
+            ('yimin',       'yimin',       '郭依旻', 0),
+            ('admin',       'Fme@2024',    '系統管理員', 1),
+        ]
+        conn.executemany(
+            "INSERT INTO users (username, password, display, is_admin) VALUES (?,?,?,?)", seed
+        )
+        conn.commit()
+    conn.close()
+
+
+def get_user(username):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT * FROM users WHERE username=?", (username.lower(),)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def change_password(username, new_password):
+    conn = get_conn()
+    conn.execute("UPDATE users SET password=? WHERE username=?", (new_password, username.lower()))
+    conn.commit()
+    conn.close()
+
+
+def get_all_users_list():
+    conn = get_conn()
+    rows = conn.execute("SELECT username, display, is_admin FROM users ORDER BY is_admin DESC, username").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# ── 專案查詢 ──────────────────────────────────────────────────────────────────
+
 def get_all_projects(dept=None, status=None, dev_type=None):
     """已取消專案不在此列；用 get_cancelled_projects() 另取。"""
     conn = get_conn()
